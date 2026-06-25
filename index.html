@@ -197,7 +197,7 @@ header.scrolled .langs button{color:var(--green,#114a5e)}
   .lb-nav{width:42px;height:42px}.lb-prev{left:10px}.lb-next{right:10px}
 }
 </style>
-<link rel="stylesheet" href="assets/eguzki.css">
+<link rel="stylesheet" href="assets/eguzki.css?v=4">
 </head>
 <body>
 
@@ -521,7 +521,7 @@ header.scrolled .langs button{color:var(--green,#114a5e)}
   <div class="lb-count" id="lbCount"></div>
 </div>
 <button class="to-top" id="toTop" aria-label="Volver arriba">↑</button>
-<script src="assets/eguzki.js"></script>
+<script src="assets/eguzki.js?v=4"></script>
 <script>
 (function(){
   // ---------- Diccionario de idiomas ----------
@@ -827,8 +827,32 @@ header.scrolled .langs button{color:var(--green,#114a5e)}
     if(rn)rn.addEventListener('click',()=>{go(page+1);restartAuto();});
     track.addEventListener('scroll',()=>{clearTimeout(scrollT);scrollT=setTimeout(fromScroll,90);},{passive:true});
     track.addEventListener('mouseenter',stopAuto);
-    track.addEventListener('mouseleave',startAuto);
+    track.addEventListener('mouseleave',function(){if(!down)startAuto();});
     track.addEventListener('touchstart',stopAuto,{passive:true});
+    // — Arrastre con el ratón (deslizar el carrusel en escritorio) —
+    let down=false,sx=0,sl=0,moved=false;
+    track.addEventListener('pointerdown',function(e){
+      if(e.pointerType==='touch')return;            // en móvil ya se desliza solo
+      down=true;moved=false;sx=e.clientX;sl=track.scrollLeft;
+      track.classList.add('grabbing');stopAuto();
+      try{track.setPointerCapture(e.pointerId);}catch(_){}
+    });
+    track.addEventListener('pointermove',function(e){
+      if(!down)return;
+      const dx=e.clientX-sx;
+      if(Math.abs(dx)>4)moved=true;
+      track.scrollLeft=sl-dx;
+    });
+    function endDrag(){
+      if(!down)return;down=false;track.classList.remove('grabbing');
+      const unit=pages>1?maxScroll/(pages-1):1;
+      go(Math.round(track.scrollLeft/unit));         // ajusta al panel más cercano
+      startAuto();
+    }
+    track.addEventListener('pointerup',endDrag);
+    track.addEventListener('pointercancel',endDrag);
+    track.addEventListener('click',function(e){if(moved){e.preventDefault();e.stopPropagation();}},true);
+    track.addEventListener('dragstart',function(e){e.preventDefault();});
     window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{rebuild();track.scrollTo({left:posOf(page)});},160);});
     rebuild();startAuto();
     // exponer para recálculo tras cambio de idioma (no altera textos, solo por si reflow)
