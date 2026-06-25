@@ -369,6 +369,7 @@ header.scrolled .langs button{color:var(--green,#114a5e)}
       <div class="review"><div class="stars">★★★★★</div><p>“Es la segunda vez que vamos de vacaciones a Los Caños de Meca. ¡Sitio fantástico para disfrutar de la costa gaditana!”</p><div class="who"><span class="av">L</span><div><b>Lucía A.</b><small>★★★★★</small></div></div></div>
     </div>
     <button type="button" class="rev-arrow rev-next" id="revNext" aria-label="Siguiente">›</button>
+    <div class="rev-dots" id="revDots" role="tablist" aria-label="Páginas de opiniones"></div>
   </div>
 </div></section>
 
@@ -785,14 +786,54 @@ header.scrolled .langs button{color:var(--green,#114a5e)}
     if(r)r.scrollIntoView({behavior:'smooth'});
   }));
 
-  // ---------- Carrusel de opiniones ----------
-  const track=document.getElementById('reviewsTrack'),rp=document.getElementById('revPrev'),rn=document.getElementById('revNext');
-  if(track&&rp&&rn){
-    const upd=()=>{const ov=(track.scrollWidth-track.clientWidth>8)&&window.innerWidth>700;rp.style.display=rn.style.display=ov?'grid':'none';};
-    rp.addEventListener('click',()=>track.scrollBy({left:-380,behavior:'smooth'}));
-    rn.addEventListener('click',()=>track.scrollBy({left:380,behavior:'smooth'}));
-    window.addEventListener('resize',upd);upd();
-  }
+  // ---------- Carrusel de opiniones (paginado por paneles + puntos) ----------
+  (function(){
+    const track=document.getElementById('reviewsTrack');
+    if(!track)return;
+    const rp=document.getElementById('revPrev'),rn=document.getElementById('revNext'),dots=document.getElementById('revDots');
+    const cards=[...track.querySelectorAll('.review')];
+    if(!cards.length)return;
+    let page=0,pages=1,perView=1,step=1,maxScroll=0,auto=null,resizeT=null,scrollT=null;
+    function measure(){
+      const cw=cards[0].getBoundingClientRect().width;
+      const gap=parseFloat(getComputedStyle(track).columnGap||getComputedStyle(track).gap||'20')||20;
+      step=cw+gap;
+      perView=Math.max(1,Math.round(track.clientWidth/step));
+      pages=Math.max(1,Math.ceil(cards.length/perView));
+      maxScroll=Math.max(0,track.scrollWidth-track.clientWidth);
+      if(page>pages-1)page=pages-1;
+    }
+    const posOf=i=>pages>1?Math.round(i*maxScroll/(pages-1)):0;
+    function buildDots(){
+      if(!dots)return;
+      dots.innerHTML='';
+      for(let i=0;i<pages;i++){
+        const b=document.createElement('button');b.type='button';b.setAttribute('role','tab');
+        b.setAttribute('aria-label','Panel '+(i+1)+' de '+pages);
+        if(i===0)b.classList.add('on');
+        b.addEventListener('click',()=>{go(i);restartAuto();});
+        dots.appendChild(b);
+      }
+    }
+    function syncDots(){if(dots)[...dots.children].forEach((d,i)=>{d.classList.toggle('on',i===page);d.setAttribute('aria-selected',i===page);});}
+    function arrows(){const show=pages>1;if(rp)rp.style.display=show?'grid':'none';if(rn)rn.style.display=show?'grid':'none';if(dots)dots.style.display=show?'flex':'none';}
+    function go(i){page=(i+pages)%pages;track.scrollTo({left:posOf(page),behavior:'smooth'});syncDots();}
+    function fromScroll(){const unit=pages>1?maxScroll/(pages-1):1;const p=Math.max(0,Math.min(pages-1,Math.round(track.scrollLeft/unit)));if(p!==page){page=p;syncDots();}}
+    function rebuild(){measure();buildDots();arrows();syncDots();}
+    function startAuto(){if(pages>1&&!auto)auto=setInterval(()=>go(page+1),5000);}
+    function stopAuto(){if(auto){clearInterval(auto);auto=null;}}
+    function restartAuto(){stopAuto();startAuto();}
+    if(rp)rp.addEventListener('click',()=>{go(page-1);restartAuto();});
+    if(rn)rn.addEventListener('click',()=>{go(page+1);restartAuto();});
+    track.addEventListener('scroll',()=>{clearTimeout(scrollT);scrollT=setTimeout(fromScroll,90);},{passive:true});
+    track.addEventListener('mouseenter',stopAuto);
+    track.addEventListener('mouseleave',startAuto);
+    track.addEventListener('touchstart',stopAuto,{passive:true});
+    window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{rebuild();track.scrollTo({left:posOf(page)});},160);});
+    rebuild();startAuto();
+    // exponer para recálculo tras cambio de idioma (no altera textos, solo por si reflow)
+    window._revRebuild=rebuild;
+  })();
 
   // ---------- Cambio de idioma ----------
   function setLang(l){if(!T[l])return;LANG=l;try{localStorage.setItem('cl_lang',l);}catch(e){}applyStatic(l);renderDow();render();sync();}
