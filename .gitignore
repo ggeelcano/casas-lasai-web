@@ -1,0 +1,5 @@
+img-orig/
+.chrome-tmp/
+.chrome-c/
+.chrome-l/
+*.tmp
