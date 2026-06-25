@@ -7,7 +7,13 @@ if(burger&&menu){
   menu.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>menu.classList.remove('open')));
 }
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
-document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+document.querySelectorAll('.reveal').forEach(el=>{
+  // escalonado: las tarjetas hermanas entran en secuencia
+  const sibs=[...el.parentElement.children].filter(c=>c.classList.contains('reveal'));
+  const idx=sibs.indexOf(el);
+  if(sibs.length>1&&idx>0)el.style.transitionDelay=(Math.min(idx,6)*0.08)+'s';
+  io.observe(el);
+});
 function animateNum(el){
   const target=parseFloat(el.dataset.target);const dec=parseInt(el.dataset.decimals||'0',10);
   const suffix=el.dataset.suffix||'';const sep=el.dataset.sep==='1';const dur=1500;let start=null;
